@@ -1,0 +1,81 @@
+class Seat {
+  constructor(id) {
+    this.id = id;
+    this.isLocked = false;
+    this.isBooked = false;
+    this.lockedBy = null;
+    this.lockTimer = null;
+  }
+}
+
+class TicketBookingSystem {
+  constructor(totalSeats = 5, lockTimeout = 3000) {
+    this.seats = new Map();
+    for (let i = 1; i <= totalSeats; i++) {
+      this.seats.set(i, new Seat(i));
+    }
+    this.lockTimeout = lockTimeout;
+  }
+
+  async lockSeat(seatId, userId) {
+    const seat = this.seats.get(seatId);
+    if (!seat) return `❌ Seat ${seatId} does not exist.`;
+    if (seat.isBooked) return `❌ Seat ${seatId} already booked.`;
+    if (seat.isLocked) return `⚠️ Seat ${seatId} locked by ${seat.lockedBy}.`;
+
+    // Lock the seat
+    seat.isLocked = true;
+    seat.lockedBy = userId;
+    console.log(`🔒 [${userId}] Locked seat ${seatId}.`);
+
+    // Auto unlock after timeout
+    seat.lockTimer = setTimeout(() => {
+      if (seat.isLocked && seat.lockedBy === userId) {
+        seat.isLocked = false;
+        seat.lockedBy = null;
+        console.log(`⏰ [${userId}] Lock expired, seat ${seatId} unlocked.`);
+      }
+    }, this.lockTimeout);
+
+    return `✅ Seat ${seatId} locked by ${userId}.`;
+  }
+
+  async confirmBooking(seatId, userId) {
+    const seat = this.seats.get(seatId);
+    if (!seat) return `❌ Seat ${seatId} does not exist.`;
+    if (!seat.isLocked || seat.lockedBy !== userId)
+      return `⚠️ Seat ${seatId} not locked by ${userId}, cannot confirm.`;
+
+    seat.isBooked = true;
+    seat.isLocked = false;
+    seat.lockedBy = null;
+    clearTimeout(seat.lockTimer);
+
+    console.log(`✅ [${userId}] Confirmed booking for seat ${seatId}.`);
+    return `🎟️ Seat ${seatId} booked successfully by ${userId}.`;
+  }
+
+  showSeatStatus() {
+    console.log("\n🪑 Final Seat Status:");
+    for (const [id, seat] of this.seats.entries()) {
+      const status = seat.isBooked ? "BOOKED" : "AVAILABLE";
+      console.log(`Seat ${id}: ${status}`);
+    }
+  }
+}
+
+// --- Simulation ---
+const system = new TicketBookingSystem(5, 3000);
+
+async function simulateUser(userId) {
+  const seatId = Math.floor(Math.random() * 5) + 1;
+  console.log(await system.lockSeat(seatId, userId));
+  await new Promise((res) => setTimeout(res, Math.random() * 4000));
+  console.log(await system.confirmBooking(seatId, userId));
+}
+
+(async () => {
+  const users = Array.from({ length: 5 }, (_, i) => `User-${i + 1}`);
+  await Promise.all(users.map((u) => simulateUser(u)));
+  system.showSeatStatus();
+})();
